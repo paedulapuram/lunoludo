@@ -1,0 +1,9 @@
+{
+  "name": "luno-ludo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local browser Ludo game with login, bots, dice, captures, and home lanes.",
+  "scripts": {
+    "dev": "python3 -m http.server 4173"
+  }
+}

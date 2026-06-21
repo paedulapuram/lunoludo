@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luno Ludo</title>
+    <link rel="stylesheet" href="./styles.css?v=20260621-color-align" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="loginView" class="login-view" aria-labelledby="loginTitle">
+        <div class="brand">
+          <span class="brand-mark">L</span>
+          <div>
+            <h1 id="loginTitle">Luno Ludo</h1>
+            <p>Local Ludo table with login, bots, dice, captures, and home lanes.</p>
+          </div>
+        </div>
+
+        <form id="loginForm" class="login-form">
+          <label>
+            Player name
+            <input id="playerName" name="playerName" maxlength="18" value="Player" autocomplete="name" />
+          </label>
+
+          <fieldset>
+            <legend>Players</legend>
+            <div class="segmented">
+              <label><input type="radio" name="playerCount" value="2" checked /><span>2</span></label>
+              <label><input type="radio" name="playerCount" value="3" /><span>3</span></label>
+              <label><input type="radio" name="playerCount" value="4" /><span>4</span></label>
+            </div>
+          </fieldset>
+
+          <button class="primary-action" type="submit">Start game</button>
+        </form>
+      </section>
+
+      <section id="gameView" class="game-view" hidden>
+        <header class="top-bar">
+          <div class="brand compact">
+            <span class="brand-mark">L</span>
+            <div>
+              <h1>Luno Ludo</h1>
+              <p id="statusText" aria-live="polite">Roll the dice to start.</p>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="newGameButton" class="ghost-action" type="button">New game</button>
+          </div>
+        </header>
+
+        <section class="table-layout">
+          <section class="board-wrap" aria-label="Ludo board">
+            <div id="board" class="board"></div>
+          </section>
+
+          <aside class="side-panel" aria-label="Game controls">
+            <div class="turn-card">
+              <span>Turn</span>
+              <strong id="turnLabel">-</strong>
+            </div>
+
+            <button id="diceButton" class="dice-button" type="button">
+              <span id="diceFace">?</span>
+              <small>Roll</small>
+            </button>
+
+            <div class="rules-card">
+              <h2>Rules</h2>
+              <ul>
+                <li>Roll 6 to move a token out of base.</li>
+                <li>Rolling 6 gives one extra turn.</li>
+                <li>Landing on an enemy sends it back to base.</li>
+                <li>Shield squares are safe from capture.</li>
+                <li>All 4 tokens must reach the center to win.</li>
+              </ul>
+            </div>
+
+            <div>
+              <h2>Players</h2>
+              <div id="playersList" class="players-list"></div>
+            </div>
+
+            <div>
+              <h2>Moves</h2>
+              <ol id="moveLog" class="move-log"></ol>
+            </div>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js?v=20260621-color-align"></script>
+  </body>
+</html>
