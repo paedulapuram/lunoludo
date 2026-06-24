@@ -549,13 +549,14 @@ function renderBoard() {
 
   for (let row = 0; row < 15; row += 1) {
     for (let col = 0; col < 15; col += 1) {
-      const tokens = tokenGroups.get(key(row, col)) || [];
+      const display = displayCoord([row, col]);
+      const tokens = tokenGroups.get(key(...display)) || [];
       if (isHomeBlock(row, col) || (isCenterBlock(row, col) && !tokens.length)) continue;
       const cell = document.createElement("div");
       cell.className = `${cellClass(row, col)}${isCenterBlock(row, col) ? " center-token-cell" : ""}`;
-      cell.style.gridRow = String(row + 1);
-      cell.style.gridColumn = String(col + 1);
-      cell.dataset.key = key(row, col);
+      cell.style.gridRow = String(display[0] + 1);
+      cell.style.gridColumn = String(display[1] + 1);
+      cell.dataset.key = key(...display);
       if (tokens.length) cell.append(renderTokenStack(tokens));
       els.board.append(cell);
     }
@@ -588,7 +589,7 @@ function renderHomeArea(color, [gridRow, gridCol], tokenGroups) {
   for (const coord of yards[color]) {
     const slot = document.createElement("div");
     slot.className = "home-slot";
-    const tokens = tokenGroups.get(key(...coord)) || [];
+    const tokens = tokenGroups.get(key(...displayCoord(coord))) || [];
     if (tokens.length) {
       slot.append(renderTokenStack(tokens));
     } else {
@@ -698,7 +699,7 @@ function groupTokensByCell() {
     for (const token of player.tokens) {
       const position = tokenPosition(player, token);
       if (!position) continue;
-      const cellKey = key(...position.coord);
+      const cellKey = key(...displayCoord(position.coord));
       if (!groups.has(cellKey)) groups.set(cellKey, []);
       groups.get(cellKey).push({ player, token });
     }
@@ -751,11 +752,15 @@ function currentPlayer() {
 }
 
 function homePlacements() {
-  const placements = [[10, 1], [1, 1], [1, 10], [10, 10]];
-  return displayColorOrder().reduce((homes, color, index) => {
-    homes[color] = placements[index];
-    return homes;
-  }, {});
+  const baseHomes = {
+    yellow: [1, 1],
+    green: [1, 10],
+    blue: [10, 1],
+    red: [10, 10],
+  };
+  return Object.fromEntries(
+    Object.entries(baseHomes).map(([color, placement]) => [color, displayHomePlacement(placement)]),
+  );
 }
 
 function displayColorOrder() {
@@ -766,6 +771,34 @@ function displayColorOrder() {
 
 function loginColor() {
   return onlineColor || state.humanPlayerId || null;
+}
+
+function displayHomePlacement([gridRow, gridCol]) {
+  const top = gridRow - 1;
+  const left = gridCol - 1;
+  const corners = [
+    displayCoord([top, left]),
+    displayCoord([top + 5, left]),
+    displayCoord([top, left + 5]),
+    displayCoord([top + 5, left + 5]),
+  ];
+  return [
+    Math.min(...corners.map(([row]) => row)) + 1,
+    Math.min(...corners.map(([, col]) => col)) + 1,
+  ];
+}
+
+function displayCoord([row, col]) {
+  let next = [row, col];
+  for (let index = 0; index < displayRotationSteps(); index += 1) {
+    next = [14 - next[1], next[0]];
+  }
+  return next;
+}
+
+function displayRotationSteps() {
+  const focusColor = loginColor() || colors[0];
+  return colors.includes(focusColor) ? colors.indexOf(focusColor) : 0;
 }
 
 function isHumanPlayer(player) {
