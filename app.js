@@ -597,6 +597,12 @@ function renderHomeArea(color, [gridRow, gridCol], tokenGroups) {
     slots.append(slot);
   }
   home.append(slots);
+  if (color === loginColor()) {
+    const badge = document.createElement("span");
+    badge.className = "you-badge";
+    badge.textContent = "You";
+    home.append(badge);
+  }
   return home;
 }
 
@@ -753,9 +759,13 @@ function homePlacements() {
 }
 
 function displayColorOrder() {
-  const focusColor = onlineColor || state.humanPlayerId || colors[0];
+  const focusColor = loginColor() || colors[0];
   const startIndex = colors.includes(focusColor) ? colors.indexOf(focusColor) : 0;
   return [...colors.slice(startIndex), ...colors.slice(0, startIndex)];
+}
+
+function loginColor() {
+  return onlineColor || state.humanPlayerId || null;
 }
 
 function isHumanPlayer(player) {

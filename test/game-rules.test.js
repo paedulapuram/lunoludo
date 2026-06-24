@@ -177,6 +177,10 @@ function useControlledTimers(game) {
     { blue: [10, 1], yellow: [1, 1], green: [1, 10], red: [10, 10] },
     "blue login should place blue bottom-left, yellow top-left, green top-right, red bottom-right",
   );
+  const blueLoggedInHome = game.renderHomeArea("blue", [10, 1], new Map());
+  const redLoggedInHome = game.renderHomeArea("red", [10, 10], new Map());
+  assert.ok(blueLoggedInHome.children.some((child) => child.className === "you-badge"), "logged-in color should show You badge");
+  assert.strictEqual(redLoggedInHome.children.some((child) => child.className === "you-badge"), false, "other colors should not show You badge");
   assert.strictEqual(game.needsEntryAssist(game.state.players[0]), true, "all-home player should qualify for entry assist");
   game.state.players[0].entryMisses = 2;
   assert.strictEqual(game.entryAssistedDice(game.state.players[0]), 6, "third all-home entry attempt should become 6");

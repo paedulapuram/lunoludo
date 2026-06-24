@@ -311,6 +311,29 @@ h2 {
   aspect-ratio: 1;
 }
 
+.you-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  z-index: 2;
+  transform: translateX(-50%);
+  min-width: 58px;
+  padding: 5px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  color: #111827;
+  background: linear-gradient(180deg, #ffffff, #eaf2ff);
+  box-shadow:
+    0 8px 18px rgba(17, 24, 39, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.92);
+  font-size: clamp(0.72rem, 1.6vw, 0.9rem);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .home-slot {
   display: grid;
   place-items: center;
