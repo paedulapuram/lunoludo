@@ -91,6 +91,7 @@ globalThis.__test = {
   displayColorOrder,
   displayCoord,
   displayRotationSteps,
+  centerTriangleColors,
   rollDice,
   entryAssistedDice,
   updateEntryMisses,
@@ -181,6 +182,11 @@ function useControlledTimers(game) {
   );
   assert.strictEqual(game.displayRotationSteps(), 0, "blue login should use the natural board orientation");
   assert.deepStrictEqual(JSON.parse(JSON.stringify(game.displayCoord([13, 6]))), [13, 6], "blue display should not rotate blue start");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.centerTriangleColors())),
+    { top: "green", right: "red", bottom: "blue", left: "yellow" },
+    "blue center triangle should use natural colors",
+  );
   const blueLoggedInHome = game.renderHomeArea("blue", [10, 1], new Map());
   const redLoggedInHome = game.renderHomeArea("red", [10, 10], new Map());
   assert.ok(blueLoggedInHome.children.some((child) => child.className === "you-badge"), "logged-in color should show You badge");
@@ -209,6 +215,11 @@ function useControlledTimers(game) {
   );
   assert.strictEqual(game.displayRotationSteps(), 1, "yellow login should rotate the board once");
   assert.deepStrictEqual(JSON.parse(JSON.stringify(game.displayCoord([6, 1]))), [13, 6], "yellow start should display at bottom-left start position");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.centerTriangleColors())),
+    { top: "red", right: "blue", bottom: "yellow", left: "green" },
+    "yellow center triangle should rotate with the board",
+  );
   game.startGame("Player", 3);
   assert.deepStrictEqual(
     Array.from(game.surpriseIndexes).sort((a, b) => a - b),

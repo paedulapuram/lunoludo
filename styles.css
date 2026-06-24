@@ -455,22 +455,22 @@ h2 {
 }
 
 .center-top {
-  background: var(--green);
+  background: var(--triangle-color, var(--green));
   clip-path: polygon(0 0, 100% 0, 50% 50%);
 }
 
 .center-right {
-  background: var(--red);
+  background: var(--triangle-color, var(--red));
   clip-path: polygon(100% 0, 100% 100%, 50% 50%);
 }
 
 .center-bottom {
-  background: var(--blue);
+  background: var(--triangle-color, var(--blue));
   clip-path: polygon(0 100%, 100% 100%, 50% 50%);
 }
 
 .center-left {
-  background: var(--yellow);
+  background: var(--triangle-color, var(--yellow));
   clip-path: polygon(0 0, 0 100%, 50% 50%);
 }
 

@@ -568,11 +568,12 @@ function renderCenter() {
   center.className = "center-cell";
   center.style.gridRow = "7 / span 3";
   center.style.gridColumn = "7 / span 3";
+  const triangles = centerTriangleColors();
   center.innerHTML = `
-    <span class="center-triangle center-top"></span>
-    <span class="center-triangle center-right"></span>
-    <span class="center-triangle center-bottom"></span>
-    <span class="center-triangle center-left"></span>
+    <span class="center-triangle center-top" style="--triangle-color: var(--${triangles.top})"></span>
+    <span class="center-triangle center-right" style="--triangle-color: var(--${triangles.right})"></span>
+    <span class="center-triangle center-bottom" style="--triangle-color: var(--${triangles.bottom})"></span>
+    <span class="center-triangle center-left" style="--triangle-color: var(--${triangles.left})"></span>
   `;
   return center;
 }
@@ -767,6 +768,26 @@ function displayColorOrder() {
   const focusColor = loginColor() || colors[0];
   const startIndex = colors.includes(focusColor) ? colors.indexOf(focusColor) : 0;
   return [...colors.slice(startIndex), ...colors.slice(0, startIndex)];
+}
+
+function centerTriangleColors() {
+  const base = [
+    { side: "top", coord: [6, 7], color: "green" },
+    { side: "right", coord: [7, 8], color: "red" },
+    { side: "bottom", coord: [8, 7], color: "blue" },
+    { side: "left", coord: [7, 6], color: "yellow" },
+  ];
+  const sideByCoord = {
+    "6-7": "top",
+    "7-8": "right",
+    "8-7": "bottom",
+    "7-6": "left",
+  };
+
+  return base.reduce((triangles, item) => {
+    triangles[sideByCoord[key(...displayCoord(item.coord))]] = item.color;
+    return triangles;
+  }, {});
 }
 
 function loginColor() {
