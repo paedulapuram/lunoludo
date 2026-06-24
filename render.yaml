@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: lunoludo
+    name: lunoludo-room
     runtime: node
     plan: free
     buildCommand: npm install
