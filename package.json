@@ -4,6 +4,7 @@
   "private": true,
   "description": "A local browser Ludo game with login, bots, dice, captures, and home lanes.",
   "scripts": {
-    "dev": "python3 -m http.server 4173"
+    "dev": "python3 -m http.server 4173",
+    "test": "node test/game-rules.test.js"
   }
 }

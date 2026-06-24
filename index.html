@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Luno Ludo</title>
-    <link rel="stylesheet" href="./styles.css?v=20260621-color-align" />
+    <link rel="stylesheet" href="./styles.css?v=board-dice-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -13,7 +13,7 @@
           <span class="brand-mark">L</span>
           <div>
             <h1 id="loginTitle">Luno Ludo</h1>
-            <p>Local Ludo table with login, bots, dice, captures, and home lanes.</p>
+            <p>Local Ludo table with login, manual dice, captures, and home lanes.</p>
           </div>
         </div>
 
@@ -33,6 +33,7 @@
           </fieldset>
 
           <button class="primary-action" type="submit">Start game</button>
+          <button id="loginRulesButton" class="ghost-action" type="button">Rules</button>
         </form>
       </section>
 
@@ -46,6 +47,7 @@
             </div>
           </div>
           <div class="controls">
+            <button id="gameRulesButton" class="ghost-action" type="button">Rules</button>
             <button id="newGameButton" class="ghost-action" type="button">New game</button>
           </div>
         </header>
@@ -53,6 +55,12 @@
         <section class="table-layout">
           <section class="board-wrap" aria-label="Ludo board">
             <div id="board" class="board"></div>
+            <div class="board-actions" aria-label="Dice controls">
+              <button id="diceButton" class="dice-button board-dice" type="button">
+                <span id="diceFace">?</span>
+                <small>Roll</small>
+              </button>
+            </div>
           </section>
 
           <aside class="side-panel" aria-label="Game controls">
@@ -61,20 +69,8 @@
               <strong id="turnLabel">-</strong>
             </div>
 
-            <button id="diceButton" class="dice-button" type="button">
-              <span id="diceFace">?</span>
-              <small>Roll</small>
-            </button>
-
-            <div class="rules-card">
-              <h2>Rules</h2>
-              <ul>
-                <li>Roll 6 to move a token out of base.</li>
-                <li>Rolling 6 gives one extra turn.</li>
-                <li>Landing on an enemy sends it back to base.</li>
-                <li>Shield squares are safe from capture.</li>
-                <li>All 4 tokens must reach the center to win.</li>
-              </ul>
+            <div class="rules-link-card">
+              <button id="panelRulesButton" class="rules-link" type="button">Rules</button>
             </div>
 
             <div>
@@ -88,9 +84,53 @@
             </div>
           </aside>
         </section>
+
+        <div id="specialOverlay" class="special-overlay" hidden aria-live="polite">
+          <div id="specialCard" class="special-card">
+            <div class="sparkle-field" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span id="specialSource" class="special-source">UNO</span>
+            <strong id="specialName">+4</strong>
+            <p id="specialEffect">Move forward 4 spaces</p>
+            <button id="specialOkButton" class="special-ok" type="button">OK</button>
+          </div>
+        </div>
+
+        <div id="diceOverlay" class="special-overlay" hidden aria-live="polite">
+          <div class="dice-roll-card">
+            <span class="special-source">Dice Roll</span>
+            <strong id="diceRollMessage">Red threw 4</strong>
+            <button id="diceCloseButton" class="special-ok" type="button">Close</button>
+          </div>
+        </div>
       </section>
+
+      <div id="rulesOverlay" class="special-overlay" hidden>
+        <div class="rules-overlay-card" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+          <h2 id="rulesTitle">Rules</h2>
+          <ul class="rules-list">
+            <li>All pawns start in home.</li>
+            <li>A pawn can leave home only on a 6.</li>
+            <li>If no pawn can move and the roll is not 6, the turn ends.</li>
+            <li>Rolling 6 gives another dice throw.</li>
+            <li>On a 6, move a pawn in play or bring one out of home.</li>
+            <li>All selected colors are controlled manually.</li>
+            <li>Capturing on a non-X square gives one extra dice throw.</li>
+            <li>Landing on an enemy sends it back to base.</li>
+            <li>Shield squares are safe from capture.</li>
+            <li>S squares draw UNO or Snake & Ladder cards.</li>
+            <li>All 4 tokens must reach the center to win.</li>
+          </ul>
+          <button id="rulesCloseButton" class="special-ok" type="button">Close</button>
+        </div>
+      </div>
     </main>
 
-    <script src="./app.js?v=20260621-color-align"></script>
+    <script src="./app.js"></script>
   </body>
 </html>
