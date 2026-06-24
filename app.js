@@ -92,6 +92,18 @@ const socket = typeof io === "function" ? io() : null;
 let onlineColor = null;
 
 if (socket) {
+  socket.on("connect", () => {
+    if (onlineColor) reconnectOnlineColor();
+    render();
+  });
+
+  socket.on("disconnect", () => {
+    if (onlineColor) {
+      addLog("Connection lost. Reconnecting to the shared room...");
+      render();
+    }
+  });
+
   socket.on("room:state", (nextState) => {
     syncState(nextState);
     if (!els.loginView.hidden) return;
@@ -120,7 +132,14 @@ els.loginForm.addEventListener("submit", (event) => {
 
   els.loginError.hidden = true;
   if (socket) {
-    socket.emit("auth:login", { username, password }, (response) => {
+    loginOnlineColor(login.color, { username, password, showGame: true });
+    return;
+  }
+  startGame(colorNames[login.color], 4, login.color);
+});
+
+function loginOnlineColor(color, { username = color, password = color, showGame = false } = {}) {
+  socket.emit("auth:login", { username, password }, (response) => {
       if (!response?.ok) {
         els.loginError.textContent = response?.error || "Login failed.";
         els.loginError.hidden = false;
@@ -132,14 +151,17 @@ els.loginForm.addEventListener("submit", (event) => {
       state.humanPlayerId = response.color;
       window.localStorage.setItem("lunoLoginColor", response.color);
       syncState(response.state);
-      els.loginView.hidden = true;
-      els.gameView.hidden = false;
+      if (showGame) {
+        els.loginView.hidden = true;
+        els.gameView.hidden = false;
+      }
       render();
     });
-    return;
-  }
-  startGame(colorNames[login.color], 4, login.color);
-});
+}
+
+function reconnectOnlineColor() {
+  loginOnlineColor(onlineColor);
+}
 
 els.newGameButton.addEventListener("click", () => {
   if (socket && onlineColor) {
@@ -216,8 +238,16 @@ async function rollDice() {
   if (!player || state.winner || state.rolled || !player.isHuman) return;
 
   if (socket && onlineColor) {
+    if (!socket.connected) {
+      addLog("Still reconnecting. Try Roll again in a moment.");
+      render();
+      return;
+    }
     socket.emit("game:roll", {}, (response) => {
-      if (!response?.ok) addLog(response?.error || "Roll was rejected.");
+      if (!response?.ok) {
+        addLog(response?.error || "Roll was rejected.");
+        render();
+      }
     });
     return;
   }
@@ -245,8 +275,16 @@ async function moveToken(tokenId) {
   if (!player || state.resolvingSpecial || !state.selectable.includes(tokenId)) return;
 
   if (socket && onlineColor) {
+    if (!socket.connected) {
+      addLog("Still reconnecting. Try moving again in a moment.");
+      render();
+      return;
+    }
     socket.emit("game:move", { tokenId }, (response) => {
-      if (!response?.ok) addLog(response?.error || "Move was rejected.");
+      if (!response?.ok) {
+        addLog(response?.error || "Move was rejected.");
+        render();
+      }
     });
     return;
   }
@@ -646,11 +684,14 @@ function renderPanel() {
   const player = currentPlayer();
   els.turnLabel.textContent = player ? `${player.name} (${colorNames[player.color]})` : "-";
   els.diceFace.textContent = state.dice || "?";
-  els.diceButton.disabled = state.resolvingSpecial || !isHumanPlayer(player) || state.rolled || Boolean(state.winner);
+  const onlineDisconnected = Boolean(socket && onlineColor && !socket.connected);
+  els.diceButton.disabled = onlineDisconnected || state.resolvingSpecial || !isHumanPlayer(player) || state.rolled || Boolean(state.winner);
 
   if (state.winner) {
     const winner = state.players.find((candidate) => candidate.id === state.winner);
     els.statusText.textContent = `${winner.name} wins. Start a new game to play again.`;
+  } else if (onlineDisconnected) {
+    els.statusText.textContent = "Reconnecting to the shared room...";
   } else if (state.resolvingSpecial) {
     els.statusText.textContent = "Revealing surprise card...";
   } else if (state.specialNotice) {
