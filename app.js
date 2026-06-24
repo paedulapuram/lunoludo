@@ -33,6 +33,12 @@ const yards = {
   green: [[0, 10], [0, 11], [1, 10], [1, 11]],
   yellow: [[0, 0], [0, 1], [1, 0], [1, 1]],
 };
+const centerTargets = {
+  blue: [8, 7],
+  yellow: [7, 6],
+  green: [6, 7],
+  red: [7, 8],
+};
 
 const els = {
   loginView: document.querySelector("#loginView"),
@@ -524,7 +530,7 @@ function captureAt(player, token) {
 }
 
 function tokenPosition(player, token) {
-  if (token.complete) return { kind: "center", coord: [7, 7] };
+  if (token.complete) return { kind: "center", coord: centerTargets[player.color] };
   if (token.progress < 0) return { kind: "yard", coord: yards[player.color][Number(token.id.split("-")[1])] };
   if (token.progress <= 51) {
     const index = (starts[player.color] + token.progress) % 52;

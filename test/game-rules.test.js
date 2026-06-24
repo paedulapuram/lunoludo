@@ -334,6 +334,25 @@ function useControlledTimers(game) {
     [1, 8],
     "green start X should be one box in from the outside edge",
   );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.tokenPosition(
+      { color: "green" },
+      { id: "green-0", progress: 57, complete: true },
+    ).coord)),
+    [6, 7],
+    "green completed pawn should sit in the green center triangle",
+  );
+  const previousHumanPlayerId = game.state.humanPlayerId;
+  game.state.humanPlayerId = "yellow";
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.displayCoord(game.tokenPosition(
+      { color: "yellow" },
+      { id: "yellow-0", progress: 57, complete: true },
+    ).coord))),
+    [8, 7],
+    "yellow completed pawn should display in the bottom center triangle for yellow login",
+  );
+  game.state.humanPlayerId = previousHumanPlayerId;
   assert.strictEqual(
     game.track.some(([row, col]) => row >= 6 && row <= 8 && col >= 6 && col <= 8),
     false,
