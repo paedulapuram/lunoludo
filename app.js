@@ -4,6 +4,8 @@ const colors = ["red", "blue", "yellow", "green"];
 const colorNames = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
 const botNames = ["Mira", "Dev", "Asha"];
 const botTurnDelayMs = 3000;
+const revealStepDelayMs = 2000;
+const maxSurpriseChain = 6;
 const starts = { blue: 0, yellow: 13, green: 26, red: 39 };
 const startCells = {
   "13-6": "blue",
@@ -43,6 +45,9 @@ const els = {
   rulesOverlay: document.querySelector("#rulesOverlay"),
   rulesCloseButton: document.querySelector("#rulesCloseButton"),
   board: document.querySelector("#board"),
+  username: document.querySelector("#username"),
+  password: document.querySelector("#password"),
+  loginError: document.querySelector("#loginError"),
   statusText: document.querySelector("#statusText"),
   turnLabel: document.querySelector("#turnLabel"),
   diceButton: document.querySelector("#diceButton"),
@@ -78,7 +83,19 @@ const state = {
 els.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(els.loginForm);
-  startGame(String(formData.get("playerName") || "Player"), Number(formData.get("playerCount") || 2));
+  const username = String(formData.get("username") || "");
+  const password = String(formData.get("password") || "");
+  const login = authenticateColorLogin(username, password);
+
+  if (!login.ok) {
+    els.loginError.hidden = false;
+    els.password.value = "";
+    els.password.focus();
+    return;
+  }
+
+  els.loginError.hidden = true;
+  startGame(colorNames[login.color], 4, login.color);
 });
 
 els.newGameButton.addEventListener("click", () => {
@@ -103,10 +120,25 @@ function closeRules() {
   els.rulesOverlay.hidden = true;
 }
 
-function startGame(playerName, playerCount) {
+function authenticateColorLogin(username, password) {
+  const normalizedUsername = username.trim().toLowerCase();
+  const normalizedPassword = password.trim().toLowerCase();
+  const ok = colors.includes(normalizedUsername) && normalizedUsername === normalizedPassword;
+  return { ok, color: ok ? normalizedUsername : null };
+}
+
+function orderedPlayerColors(playerCount, assignedColor) {
+  const selected = colors.slice(0, playerCount);
+  if (!assignedColor || !selected.includes(assignedColor)) return selected;
+  return [assignedColor, ...selected.filter((color) => color !== assignedColor)];
+}
+
+function startGame(playerName, playerCount, assignedColor = null) {
   const cleanName = playerName.trim().slice(0, 18) || "Player";
+  const playerColors = orderedPlayerColors(playerCount, assignedColor);
   window.localStorage.setItem("lunoPlayerName", cleanName);
-  state.players = colors.slice(0, playerCount).map((color, index) => ({
+  window.localStorage.setItem("lunoLoginColor", assignedColor || playerColors[0]);
+  state.players = playerColors.map((color, index) => ({
     id: color,
     name: index === 0 ? cleanName : colorNames[color],
     color,
@@ -123,7 +155,7 @@ function startGame(playerName, playerCount) {
   state.rolled = false;
   state.selectable = [];
   state.winner = null;
-  state.log = [`${cleanName} joined as ${colorNames[state.players[0].color]}. All selected colors are manual.`];
+  state.log = [`${cleanName} logged in as ${colorNames[state.players[0].color]}. All colors are manual.`];
   state.specialNotice = "";
   state.resolvingSpecial = false;
   els.loginView.hidden = true;
@@ -141,7 +173,6 @@ async function rollDice() {
   state.selectable = movableTokens(player, state.dice);
   addLog(`${player.name} rolled ${state.dice}.`);
   render();
-  await revealDiceRoll(player, state.dice);
 
   if (!state.selectable.length) {
     addLog(`${player.name} has no legal move.`);
@@ -250,23 +281,42 @@ function advanceTurn(step = 1) {
   state.selectable = [];
 }
 
-async function resolveSurprise(player, token, previousProgress) {
+async function resolveSurprise(player, token, previousProgress, depth = 0) {
   const position = tokenPosition(player, token);
-  if (!position || position.kind !== "track" || !surpriseIndexes.has(position.index)) {
+  if (!position || position.kind !== "track" || !surpriseIndexes.has(position.index) || depth >= maxSurpriseChain) {
     return {};
   }
 
+  const surpriseProgress = token.progress;
   const card = drawSpecialCard();
   state.specialNotice = `Surprise: ${player.name} drew ${card.source} ${card.name}.`;
   addLog(state.specialNotice);
   render();
   await revealSpecialCard(player, card, specialEffectText(card));
 
-  if (card.source === "UNO") {
-    return applyUnoCard(player, token, previousProgress, card.name);
+  const result = card.source === "UNO"
+    ? applyUnoCard(player, token, previousProgress, card.name)
+    : applySnakeLadderCard(player, token, card);
+  render();
+
+  const nextPosition = tokenPosition(player, token);
+  const landedOnNewSurprise = (
+    nextPosition?.kind === "track" &&
+    surpriseIndexes.has(nextPosition.index) &&
+    token.progress !== surpriseProgress &&
+    !token.complete
+  );
+
+  if (!result.reversed && !result.skipNext && landedOnNewSurprise) {
+    const chained = await resolveSurprise(player, token, surpriseProgress, depth + 1);
+    return { ...result, ...chained };
   }
 
-  return applySnakeLadderCard(player, token, card);
+  if (depth + 1 >= maxSurpriseChain && landedOnNewSurprise) {
+    addLog("Surprise chain limit reached.");
+  }
+
+  return result;
 }
 
 function specialEffectText(card) {
@@ -284,42 +334,27 @@ async function revealSpecialCard(player, card, effectText) {
   const colorName = colorNames[player.color];
 
   state.resolvingSpecial = true;
-  els.specialSource.textContent = "Surprise Box";
-  els.specialName.textContent = `${colorName} hit on Surprise`;
-  els.specialEffect.textContent = `${colorName} hit on Surprise.`;
-  els.specialCard.dataset.source = "surprise";
-  els.specialCard.classList.add("sparkling");
-  els.specialOverlay.hidden = false;
-  render();
-  await waitForSpecialOk(1);
-
-  els.specialCard.classList.remove("sparkling");
   els.specialSource.textContent = "Card Type";
   els.specialName.textContent = `${colorName} has ${card.source}`;
-  els.specialEffect.textContent = "Press OK to reveal the card.";
+  els.specialEffect.textContent = "Revealing the card.";
   els.specialCard.dataset.source = card.source === "UNO" ? "uno" : "snake";
-  await waitForSpecialOk(2);
+  els.specialCard.classList.add("sparkling");
+  els.specialOverlay.hidden = false;
+  els.specialOkButton.hidden = true;
+  els.specialOkButton.disabled = true;
+  render();
+  await wait(revealStepDelayMs);
 
+  els.specialCard.classList.remove("sparkling");
   els.specialSource.textContent = card.source;
   els.specialName.textContent = card.steps ? `${card.name} ${card.steps}` : card.name;
   els.specialEffect.textContent = effectText;
   els.specialCard.dataset.source = card.source === "UNO" ? "uno" : "snake";
-  await waitForSpecialOk(3);
+  await wait(revealStepDelayMs);
   els.specialOverlay.hidden = true;
   state.resolvingSpecial = false;
+  els.specialOkButton.hidden = false;
   els.specialOkButton.textContent = "OK";
-}
-
-function waitForSpecialOk(step) {
-  els.specialOkButton.textContent = `OK ${step}/3`;
-  els.specialOkButton.disabled = false;
-  els.specialOkButton.focus();
-  return new Promise((resolve) => {
-    els.specialOkButton.addEventListener("click", () => {
-      els.specialOkButton.disabled = true;
-      resolve();
-    }, { once: true });
-  });
 }
 
 function wait(ms) {
@@ -397,20 +432,6 @@ function clampCardProgress(progress) {
 
 function maybeRunBot() {
   clearTimeout(state.botTimer);
-}
-
-function revealDiceRoll(player, dice) {
-  els.diceRollMessage.textContent = `${colorNames[player.color]} threw ${dice}`;
-  els.diceOverlay.hidden = false;
-  els.diceCloseButton.disabled = false;
-  els.diceCloseButton.focus();
-  return new Promise((resolve) => {
-    els.diceCloseButton.addEventListener("click", () => {
-      els.diceCloseButton.disabled = true;
-      els.diceOverlay.hidden = true;
-      resolve();
-    }, { once: true });
-  });
 }
 
 function chooseBotToken(player, movable) {
@@ -684,4 +705,64 @@ function key(row, col) {
   return `${row}-${col}`;
 }
 
-els.playerName.value = window.localStorage.getItem("lunoPlayerName") || "Player";
+async function runChainedSurpriseBrowserDemo() {
+  startGame("Demo", 2);
+  const player = state.players.find((candidate) => candidate.color === "blue") || state.players[0];
+  state.players = [player];
+  state.current = 0;
+  state.dice = 6;
+  state.rolled = true;
+  const token = player.tokens[0];
+  player.tokens.forEach((candidate, index) => {
+    candidate.progress = index === 0 ? 10 : -1;
+    candidate.complete = false;
+  });
+
+  const originalRandom = Math.random;
+  const randomValues = [
+    0.8, 0.8, 0.99, // Snake&Ladder, Snake, 6 steps: progress 10 -> 4
+    0.1, 0.6,       // UNO, Skip: second surprise reveal
+  ];
+  const stages = [];
+  const stageObserver = new MutationObserver(() => {
+    const name = els.specialName.textContent.trim();
+    const effect = els.specialEffect.textContent.trim();
+    if (name && stages.at(-1)?.name !== name) {
+      stages.push({ name, effect, progress: token.progress });
+    }
+  });
+
+  Math.random = () => randomValues.shift() ?? 0.1;
+  stageObserver.observe(els.specialCard, { childList: true, subtree: true, characterData: true });
+  try {
+    await resolveSurprise(player, token, 16);
+  } finally {
+    stageObserver.disconnect();
+    Math.random = originalRandom;
+  }
+
+  render();
+  return {
+    finalProgress: token.progress,
+    finalPosition: tokenPosition(player, token),
+    stages,
+    triggeredSecondSurprise: stages.some((stage) => stage.name === "Blue has UNO"),
+  };
+}
+
+if (typeof location !== "undefined" && (location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
+  window.__lunoDemo = { runChainedSurpriseBrowserDemo };
+
+  if (new URLSearchParams(location.search).get("demo") === "chained-surprise") {
+    window.addEventListener("load", async () => {
+      const result = await runChainedSurpriseBrowserDemo();
+      const output = document.createElement("pre");
+      output.id = "demoResult";
+      output.hidden = true;
+      output.textContent = JSON.stringify(result);
+      document.body.append(output);
+    });
+  }
+}
+
+els.username.value = window.localStorage.getItem("lunoLoginColor") || "";

@@ -130,12 +130,24 @@ h2 {
 }
 
 .login-form input[type="text"],
+.login-form input[type="password"],
 .login-form input:not([type]) {
   min-height: 44px;
   width: 100%;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.login-error {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  border-radius: 8px;
+  color: #991b1b;
+  background: #fff1f2;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .segmented {
@@ -944,6 +956,15 @@ h2 {
   background:
     radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.34), transparent 25%),
     linear-gradient(145deg, #164e63, #0f766e 52%, #111827);
+}
+
+.special-card[data-source="snake"] strong {
+  width: min(280px, 100%);
+  font-size: clamp(1.7rem, 6vw, 2.75rem);
+  line-height: 1.06;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .special-card[data-source="surprise"] {

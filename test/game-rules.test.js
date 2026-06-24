@@ -77,6 +77,8 @@ globalThis.__test = {
   tokenPosition,
   applyMove,
   afterMove,
+  authenticateColorLogin,
+  orderedPlayerColors,
   startGame,
   openRules,
   closeRules,
@@ -85,9 +87,10 @@ globalThis.__test = {
   renderPanel,
   renderHomeArea,
   renderTokenStack,
+  rollDice,
   pawnCounts,
-  revealDiceRoll,
   revealSpecialCard,
+  resolveSurprise,
   applySnakeLadderCard,
   applyUnoCard,
   cardMoveTarget,
@@ -106,8 +109,43 @@ async function nextTick() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function useControlledTimers(game) {
+  const originalSetTimeout = game.context.setTimeout;
+  const scheduled = [];
+  game.context.setTimeout = (handler, delay) => {
+    scheduled.push({ handler, delay });
+    return scheduled.length;
+  };
+  return {
+    runNext() {
+      const next = scheduled.shift();
+      assert.ok(next, "expected a scheduled timer");
+      next.handler();
+    },
+    restore() {
+      game.context.setTimeout = originalSetTimeout;
+    },
+  };
+}
+
 (async () => {
   const game = loadGame();
+
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.authenticateColorLogin("yellow", "yellow"))),
+    { ok: true, color: "yellow" },
+    "matching color credentials should log in as that color",
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.authenticateColorLogin("yellow", "blue"))),
+    { ok: false, color: null },
+    "different username and password colors should be rejected",
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.orderedPlayerColors(4, "yellow"))),
+    ["yellow", "red", "blue", "green"],
+    "assigned login color should become the first player",
+  );
 
   game.startGame("Player", 3);
   game.openRules();
@@ -124,6 +162,14 @@ async function nextTick() {
   assert.strictEqual(game.state.humanPlayerId, "red", "human player id should be the first selected color");
   assert.strictEqual(game.state.players[1].isHuman, true, "second selected color must be manual");
   assert.strictEqual(game.state.players[2].isHuman, true, "third selected color must be manual");
+  game.startGame("Yellow", 4, "yellow");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.state.players.map((participant) => participant.color))),
+    ["yellow", "red", "blue", "green"],
+    "yellow login should assign Yellow as the active player color",
+  );
+  assert.strictEqual(game.state.humanPlayerId, "yellow", "human player id should match the login color");
+  game.startGame("Player", 3);
   assert.deepStrictEqual(
     Array.from(game.surpriseIndexes).sort((a, b) => a - b),
     [4, 10, 17, 23, 30, 36, 43, 49],
@@ -172,13 +218,12 @@ async function nextTick() {
   assert.match(redHome.className, /active-home/, "current player's home should be highlighted");
   assert.doesNotMatch(greenHome.className, /active-home/, "inactive homes should not be highlighted");
 
-  const diceReveal = game.revealDiceRoll(game.state.players[0], 4);
-  await nextTick();
-  assert.strictEqual(game.els.diceRollMessage.textContent, "Red threw 4");
-  assert.strictEqual(game.els.diceOverlay.hidden, false, "dice popup should stay open before Close");
-  game.els.diceCloseButton.click();
-  await diceReveal;
-  assert.strictEqual(game.els.diceOverlay.hidden, true, "dice popup should close only after Close");
+  game.els.diceOverlay.hidden = true;
+  game.context.Math = Object.create(Math);
+  game.context.Math.random = () => 0.5;
+  await game.rollDice();
+  assert.strictEqual(game.state.dice, 4, "controlled roll should throw 4");
+  assert.strictEqual(game.els.diceOverlay.hidden, true, "dice rolls should not open a popup");
 
   const tokenStack = game.renderTokenStack([{ player: game.state.players[0], token: { id: "red-3" } }]);
   assert.doesNotMatch(tokenStack.children[0].innerHTML, /token-number/);
@@ -320,6 +365,33 @@ async function nextTick() {
   game.applySnakeLadderCard(player, snakeToken, { source: "Snake&Ladder", name: "Snake", steps: 5 });
   assert.strictEqual(snakeToken.progress, 4, "Snake 5 should move five boxes back from the previous box before S");
 
+  const chainedToken = { id: "blue-0", progress: 10, complete: false };
+  const chainedTimers = useControlledTimers(game);
+  const originalMath = game.context.Math;
+  const randomValues = [
+    0.8, 0.8, 0.99, // Snake&Ladder, Snake, 6 steps: progress 10 -> 4
+    0.1, 0.6,       // UNO, Skip: second surprise should reveal after landing on S
+  ];
+  game.context.Math = Object.create(Math);
+  game.context.Math.random = () => randomValues.shift() ?? 0.1;
+  const chainedReveal = game.resolveSurprise(player, chainedToken, 16);
+  await nextTick();
+  assert.strictEqual(game.els.specialName.textContent, "Blue has Snake&Ladder");
+  chainedTimers.runNext();
+  await nextTick();
+  assert.strictEqual(game.els.specialName.textContent, "Snake 6");
+  chainedTimers.runNext();
+  await nextTick();
+  assert.strictEqual(chainedToken.progress, 4, "Snake 6 from one S should land on the previous S");
+  assert.strictEqual(game.els.specialName.textContent, "Blue has UNO", "landing on a second S should trigger another surprise reveal");
+  chainedTimers.runNext();
+  await nextTick();
+  assert.strictEqual(game.els.specialName.textContent, "Skip");
+  chainedTimers.runNext();
+  await chainedReveal;
+  chainedTimers.restore();
+  game.context.Math = originalMath;
+
   game.state.players = [player];
   game.state.current = 0;
   game.state.dice = 6;
@@ -331,40 +403,36 @@ async function nextTick() {
   assert.strictEqual(game.state.dice, null, "dice must reset before the extra throw");
 
   const card = { source: "UNO", name: "Reverse", steps: null };
+  const specialTimers = useControlledTimers(game);
   const reveal = game.revealSpecialCard(player, card, game.specialEffectText(card));
   await nextTick();
-  assert.strictEqual(game.els.specialName.textContent, "Blue hit on Surprise");
-  assert.strictEqual(game.els.specialEffect.textContent, "Blue hit on Surprise.");
-  assert.strictEqual(game.els.specialOkButton.textContent, "OK 1/3");
-  assert.match(game.els.specialCard.className, /sparkling/, "surprise stage should show sparkle animation");
-
-  game.els.specialOkButton.click();
-  await nextTick();
   assert.strictEqual(game.els.specialName.textContent, "Blue has UNO");
-  assert.strictEqual(game.els.specialOkButton.textContent, "OK 2/3");
-  assert.doesNotMatch(game.els.specialCard.className, /sparkling/, "card type stage should stop the sparkle intro");
+  assert.strictEqual(game.els.specialEffect.textContent, "Revealing the card.");
+  assert.strictEqual(game.els.specialOkButton.hidden, true, "surprise reveal should not show OK buttons");
+  assert.match(game.els.specialCard.className, /sparkling/, "card type stage should show sparkle animation");
 
-  game.els.specialOkButton.click();
+  specialTimers.runNext();
   await nextTick();
   assert.strictEqual(game.els.specialName.textContent, "Reverse");
-  assert.strictEqual(game.els.specialOkButton.textContent, "OK 3/3");
+  assert.doesNotMatch(game.els.specialCard.className, /sparkling/, "card detail stage should stop the sparkle intro");
 
-  game.els.specialOkButton.click();
+  specialTimers.runNext();
   await reveal;
-  assert.strictEqual(game.els.specialOverlay.hidden, true, "popup must close after final OK");
+  specialTimers.restore();
+  assert.strictEqual(game.els.specialOverlay.hidden, true, "surprise reveal should close after the final delay");
 
   const ladderCard = { source: "Snake&Ladder", name: "Ladder", steps: 6 };
+  const ladderTimers = useControlledTimers(game);
   const ladderReveal = game.revealSpecialCard(player, ladderCard, game.specialEffectText(ladderCard));
   await nextTick();
-  game.els.specialOkButton.click();
-  await nextTick();
   assert.strictEqual(game.els.specialName.textContent, "Blue has Snake&Ladder");
-  game.els.specialOkButton.click();
+  ladderTimers.runNext();
   await nextTick();
   assert.strictEqual(game.els.specialName.textContent, "Ladder 6");
   assert.strictEqual(game.els.specialEffect.textContent, "Move forward 6 boxes. X and S boxes count.");
-  game.els.specialOkButton.click();
+  ladderTimers.runNext();
   await ladderReveal;
+  ladderTimers.restore();
 
   console.log("game-rules tests passed");
 })();
