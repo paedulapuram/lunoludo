@@ -87,6 +87,8 @@ globalThis.__test = {
   renderPanel,
   renderHomeArea,
   renderTokenStack,
+  homePlacements,
+  displayColorOrder,
   rollDice,
   entryAssistedDice,
   updateEntryMisses,
@@ -165,6 +167,16 @@ function useControlledTimers(game) {
   assert.strictEqual(game.state.humanPlayerId, "blue", "human player id should be the first selected color");
   assert.strictEqual(game.state.players[1].isHuman, true, "second selected color must be manual");
   assert.strictEqual(game.state.players[2].isHuman, true, "third selected color must be manual");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.displayColorOrder())),
+    ["blue", "yellow", "green", "red"],
+    "blue login should show Blue, Yellow, Green, Red clockwise from bottom-left",
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.homePlacements())),
+    { blue: [10, 1], yellow: [1, 1], green: [1, 10], red: [10, 10] },
+    "blue login should place blue bottom-left, yellow top-left, green top-right, red bottom-right",
+  );
   assert.strictEqual(game.needsEntryAssist(game.state.players[0]), true, "all-home player should qualify for entry assist");
   game.state.players[0].entryMisses = 2;
   assert.strictEqual(game.entryAssistedDice(game.state.players[0]), 6, "third all-home entry attempt should become 6");
@@ -177,6 +189,16 @@ function useControlledTimers(game) {
     "yellow login should assign Yellow as the active player color",
   );
   assert.strictEqual(game.state.humanPlayerId, "yellow", "human player id should match the login color");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.displayColorOrder())),
+    ["yellow", "green", "red", "blue"],
+    "yellow login should show Yellow, Green, Red, Blue clockwise from bottom-left",
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.homePlacements())),
+    { yellow: [10, 1], green: [1, 1], red: [1, 10], blue: [10, 10] },
+    "yellow login should place yellow bottom-left and continue clockwise",
+  );
   game.startGame("Player", 3);
   assert.deepStrictEqual(
     Array.from(game.surpriseIndexes).sort((a, b) => a - b),

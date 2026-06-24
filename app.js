@@ -542,12 +542,7 @@ function renderBoard() {
   els.board.innerHTML = "";
   const tokenGroups = groupTokensByCell();
 
-  for (const [color, placement] of Object.entries({
-    yellow: [1, 1],
-    green: [1, 10],
-    blue: [10, 1],
-    red: [10, 10],
-  })) {
+  for (const [color, placement] of Object.entries(homePlacements())) {
     els.board.append(renderHomeArea(color, placement, tokenGroups));
   }
   els.board.append(renderCenter());
@@ -749,6 +744,20 @@ function currentPlayer() {
   return state.players[state.current];
 }
 
+function homePlacements() {
+  const placements = [[10, 1], [1, 1], [1, 10], [10, 10]];
+  return displayColorOrder().reduce((homes, color, index) => {
+    homes[color] = placements[index];
+    return homes;
+  }, {});
+}
+
+function displayColorOrder() {
+  const focusColor = onlineColor || state.humanPlayerId || colors[0];
+  const startIndex = colors.includes(focusColor) ? colors.indexOf(focusColor) : 0;
+  return [...colors.slice(startIndex), ...colors.slice(0, startIndex)];
+}
+
 function isHumanPlayer(player) {
   if (!player?.isHuman) return false;
   if (socket && onlineColor) return player.color === onlineColor;
@@ -858,4 +867,4 @@ if (typeof location !== "undefined" && (location.hostname === "127.0.0.1" || loc
   }
 }
 
-els.username.value = window.localStorage.getItem("lunoLoginColor") || "";
+els.username.value = "";
