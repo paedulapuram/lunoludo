@@ -46,8 +46,10 @@ function emitAck(socket, event, payload) {
     const redBlockedRoll = await emitAck(red, "game:roll", {});
     assert.strictEqual(redBlockedRoll.ok, false, "red must not roll during blue's turn");
 
+    room.state.players[room.state.current].entryMisses = 2;
     const blueRoll = await emitAck(blue, "game:roll", {});
     assert.strictEqual(blueRoll.ok, true, "blue should roll during blue's turn");
+    assert.strictEqual(room.state.dice, 6, "entry assist should give blue a 6 after two missed entry rolls");
     assert.ok(
       room.state.log.some((entry) => entry.startsWith("Blue rolled ")),
       "shared room should record blue's accepted dice roll",

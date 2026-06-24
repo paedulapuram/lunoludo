@@ -181,6 +181,7 @@ function startGame(playerName, playerCount, assignedColor = null) {
     name: index === 0 ? cleanName : colorNames[color],
     color,
     isHuman: true,
+    entryMisses: 0,
     tokens: Array.from({ length: 4 }, (_, tokenIndex) => ({
       id: `${color}-${tokenIndex}`,
       progress: -1,
@@ -213,9 +214,10 @@ async function rollDice() {
   }
 
   state.specialNotice = "";
-  state.dice = randomDice();
+  state.dice = entryAssistedDice(player);
   state.rolled = true;
   state.selectable = movableTokens(player, state.dice);
+  updateEntryMisses(player, state.dice);
   addLog(`${player.name} rolled ${state.dice}.`);
   render();
 
@@ -769,6 +771,23 @@ function syncState(nextState) {
 
 function randomDice() {
   return Math.floor(Math.random() * 6) + 1;
+}
+
+function entryAssistedDice(player) {
+  if (needsEntryAssist(player) && player.entryMisses >= 2) return 6;
+  return randomDice();
+}
+
+function updateEntryMisses(player, dice) {
+  if (!needsEntryAssist(player) || dice === 6) {
+    player.entryMisses = 0;
+    return;
+  }
+  player.entryMisses = (player.entryMisses || 0) + 1;
+}
+
+function needsEntryAssist(player) {
+  return player.tokens.every((token) => !token.complete && token.progress < 0);
 }
 
 function addLog(message) {

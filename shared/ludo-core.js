@@ -33,6 +33,7 @@ function createGame() {
       color,
       isHuman: true,
       connected: false,
+      entryMisses: 0,
       tokens: Array.from({ length: 4 }, (_, tokenIndex) => ({
         id: `${color}-${tokenIndex}`,
         progress: -1,
@@ -72,9 +73,10 @@ function rollDice(state, color, random = Math.random) {
   }
 
   state.specialNotice = "";
-  state.dice = randomDice(random);
+  state.dice = entryAssistedDice(player, random);
   state.rolled = true;
   state.selectable = movableTokens(player, state.dice);
+  updateEntryMisses(player, state.dice);
   addLog(state, `${player.name} rolled ${state.dice}.`);
 
   if (!state.selectable.length) {
@@ -318,6 +320,23 @@ function randomDice(random = Math.random) {
   return Math.floor(random() * 6) + 1;
 }
 
+function entryAssistedDice(player, random = Math.random) {
+  if (needsEntryAssist(player) && player.entryMisses >= 2) return 6;
+  return randomDice(random);
+}
+
+function updateEntryMisses(player, dice) {
+  if (!needsEntryAssist(player) || dice === 6) {
+    player.entryMisses = 0;
+    return;
+  }
+  player.entryMisses = (player.entryMisses || 0) + 1;
+}
+
+function needsEntryAssist(player) {
+  return player.tokens.every((token) => !token.complete && token.progress < 0);
+}
+
 function addLog(state, message) {
   state.log.push(message);
 }
@@ -340,5 +359,8 @@ module.exports = {
   movableTokens,
   tokenPosition,
   cardMoveTarget,
+  entryAssistedDice,
+  updateEntryMisses,
+  needsEntryAssist,
   specialEffectText,
 };

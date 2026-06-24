@@ -88,6 +88,9 @@ globalThis.__test = {
   renderHomeArea,
   renderTokenStack,
   rollDice,
+  entryAssistedDice,
+  updateEntryMisses,
+  needsEntryAssist,
   pawnCounts,
   revealSpecialCard,
   resolveSurprise,
@@ -162,6 +165,11 @@ function useControlledTimers(game) {
   assert.strictEqual(game.state.humanPlayerId, "blue", "human player id should be the first selected color");
   assert.strictEqual(game.state.players[1].isHuman, true, "second selected color must be manual");
   assert.strictEqual(game.state.players[2].isHuman, true, "third selected color must be manual");
+  assert.strictEqual(game.needsEntryAssist(game.state.players[0]), true, "all-home player should qualify for entry assist");
+  game.state.players[0].entryMisses = 2;
+  assert.strictEqual(game.entryAssistedDice(game.state.players[0]), 6, "third all-home entry attempt should become 6");
+  game.updateEntryMisses(game.state.players[0], 6);
+  assert.strictEqual(game.state.players[0].entryMisses, 0, "rolling 6 should reset entry misses");
   game.startGame("Yellow", 4, "yellow");
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.state.players.map((participant) => participant.color))),
