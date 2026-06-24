@@ -6,6 +6,9 @@ const botNames = ["Mira", "Dev", "Asha"];
 const botTurnDelayMs = 3000;
 const revealStepDelayMs = 2000;
 const maxSurpriseChain = 6;
+const lastTrackProgress = 51;
+const firstLaneProgress = 52;
+const completedProgress = 57;
 const starts = { blue: 0, yellow: 13, green: 26, red: 39 };
 const startCells = {
   "13-6": "blue",
@@ -272,7 +275,7 @@ function applyMove(player, token, steps, label = "moved") {
     addLog(`${player.name} entered a token.`);
   } else {
     token.progress = clampProgress(token.progress + steps);
-    if (token.progress === 57) {
+    if (token.progress === completedProgress) {
       token.complete = true;
       addLog(`${player.name} reached the center.`);
     } else {
@@ -435,7 +438,7 @@ function drawSpecialCard() {
 function applyUnoCard(player, token, previousProgress, name) {
   if (name === "Reverse") {
     token.progress = previousProgress;
-    token.complete = previousProgress === 57;
+    token.complete = previousProgress === completedProgress;
     addLog(`UNO Reverse: ${player.name}'s dice move is undone.`);
     return { reversed: true, turn: "previous" };
   }
@@ -467,7 +470,7 @@ function moveTokenByCard(player, token, steps, label) {
   const nextProgress = cardMoveTarget(token.progress, steps);
   const moved = Math.abs(nextProgress - token.progress);
   token.progress = nextProgress;
-  token.complete = token.progress === 57;
+  token.complete = token.progress === completedProgress;
 
   if (token.complete) {
     addLog(`${label}: ${player.name} reached the center.`);
@@ -483,11 +486,11 @@ function cardMoveTarget(currentProgress, steps) {
 }
 
 function clampProgress(progress) {
-  return Math.min(57, Math.max(-1, progress));
+  return Math.min(completedProgress, Math.max(-1, progress));
 }
 
 function clampCardProgress(progress) {
-  return Math.min(57, Math.max(0, progress));
+  return Math.min(completedProgress, Math.max(0, progress));
 }
 
 function maybeRunBot() {
@@ -504,7 +507,7 @@ function movableTokens(player, dice) {
     .filter((token) => {
       if (token.complete) return false;
       if (token.progress === -1) return dice === 6;
-      return token.progress + dice <= 57;
+      return token.progress + dice <= completedProgress;
     })
     .map((token) => token.id);
 }
@@ -532,11 +535,11 @@ function captureAt(player, token) {
 function tokenPosition(player, token) {
   if (token.complete) return { kind: "center", coord: centerTargets[player.color] };
   if (token.progress < 0) return { kind: "yard", coord: yards[player.color][Number(token.id.split("-")[1])] };
-  if (token.progress <= 51) {
+  if (token.progress <= lastTrackProgress) {
     const index = (starts[player.color] + token.progress) % 52;
     return { kind: "track", index, coord: track[index] };
   }
-  return { kind: "lane", coord: lanes[player.color][token.progress - 52] };
+  return { kind: "lane", coord: lanes[player.color][token.progress - firstLaneProgress] };
 }
 
 function render() {

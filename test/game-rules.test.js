@@ -320,6 +320,26 @@ function useControlledTimers(game) {
   );
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.tokenPosition(
+      { color: "blue" },
+      { id: "blue-0", progress: 51, complete: false },
+    ))),
+    { kind: "track", index: 51, coord: [14, 6] },
+    "blue progress 51 should be the final outer-track square before home lane",
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.tokenPosition(
+      { color: "blue" },
+      { id: "blue-0", progress: 52, complete: false },
+    ))),
+    { kind: "lane", coord: [13, 7] },
+    "blue progress 52 should enter the blue home lane instead of wrapping to start",
+  );
+  const laneEntryToken = { id: "blue-0", progress: 51, complete: false };
+  game.applyMove({ name: "Blue", color: "blue" }, laneEntryToken, 1);
+  assert.strictEqual(laneEntryToken.progress, 52, "moving from final track square by 1 should enter home lane");
+  assert.strictEqual(game.tokenPosition({ color: "blue" }, laneEntryToken).kind, "lane", "lane-entry token should render in the home lane");
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(game.tokenPosition(
       { color: "yellow" },
       { id: "yellow-0", progress: 0, complete: false },
     ).coord)),

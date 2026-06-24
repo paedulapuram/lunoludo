@@ -2,6 +2,9 @@
 
 const colors = ["blue", "yellow", "green", "red"];
 const colorNames = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
+const lastTrackProgress = 51;
+const firstLaneProgress = 52;
+const completedProgress = 57;
 const starts = { blue: 0, yellow: 13, green: 26, red: 39 };
 const safeIndexes = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 const surpriseIndexes = new Set([4, 10, 17, 23, 30, 36, 43, 49]);
@@ -119,7 +122,7 @@ function applyMove(state, player, token, steps, label = "moved") {
     addLog(state, `${player.name} entered a token.`);
   } else {
     token.progress = clampProgress(token.progress + steps);
-    if (token.progress === 57) {
+    if (token.progress === completedProgress) {
       token.complete = true;
       addLog(state, `${player.name} reached the center.`);
     } else {
@@ -237,7 +240,7 @@ function drawSpecialCard(random = Math.random) {
 function applyUnoCard(state, player, token, previousProgress, name) {
   if (name === "Reverse") {
     token.progress = previousProgress;
-    token.complete = previousProgress === 57;
+    token.complete = previousProgress === completedProgress;
     addLog(state, `UNO Reverse: ${player.name}'s dice move is undone.`);
     return { reversed: true, turn: "previous" };
   }
@@ -265,7 +268,7 @@ function moveTokenByCard(state, player, token, steps, label) {
   const nextProgress = cardMoveTarget(token.progress, steps);
   const moved = Math.abs(nextProgress - token.progress);
   token.progress = nextProgress;
-  token.complete = token.progress === 57;
+  token.complete = token.progress === completedProgress;
   if (token.complete) addLog(state, `${label}: ${player.name} reached the center.`);
   else if (steps >= 0) addLog(state, `${label}: ${player.name} moved forward ${moved}.`);
   else addLog(state, `${label}: ${player.name} moved back ${moved}.`);
@@ -276,11 +279,11 @@ function cardMoveTarget(currentProgress, steps) {
 }
 
 function clampProgress(progress) {
-  return Math.min(57, Math.max(-1, progress));
+  return Math.min(completedProgress, Math.max(-1, progress));
 }
 
 function clampCardProgress(progress) {
-  return Math.min(57, Math.max(0, progress));
+  return Math.min(completedProgress, Math.max(0, progress));
 }
 
 function movableTokens(player, dice) {
@@ -288,7 +291,7 @@ function movableTokens(player, dice) {
     .filter((token) => {
       if (token.complete) return false;
       if (token.progress === -1) return dice === 6;
-      return token.progress + dice <= 57;
+      return token.progress + dice <= completedProgress;
     })
     .map((token) => token.id);
 }
@@ -315,11 +318,11 @@ function captureAt(state, player, token) {
 function tokenPosition(player, token) {
   if (token.complete) return { kind: "center", coord: centerTargets[player.color] };
   if (token.progress < 0) return { kind: "yard", coord: yards[player.color][Number(token.id.split("-")[1])] };
-  if (token.progress <= 51) {
+  if (token.progress <= lastTrackProgress) {
     const index = (starts[player.color] + token.progress) % 52;
     return { kind: "track", index, coord: track[index] };
   }
-  return { kind: "lane", coord: lanes[player.color][token.progress - 52] };
+  return { kind: "lane", coord: lanes[player.color][token.progress - firstLaneProgress] };
 }
 
 function randomDice(random = Math.random) {
