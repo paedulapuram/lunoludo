@@ -79,6 +79,21 @@ const state = {
   resolvingSpecial: false,
   humanPlayerId: null,
 };
+const socket = typeof io === "function" ? io() : null;
+let onlineColor = null;
+
+if (socket) {
+  socket.on("room:state", (nextState) => {
+    syncState(nextState);
+    if (!els.loginView.hidden) return;
+    render();
+  });
+
+  socket.on("room:special", async (card) => {
+    const player = state.players.find((candidate) => candidate.color === card.color) || { color: card.color };
+    await revealSpecialCard(player, card, card.effectText);
+  });
+}
 
 els.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -95,10 +110,33 @@ els.loginForm.addEventListener("submit", (event) => {
   }
 
   els.loginError.hidden = true;
+  if (socket) {
+    socket.emit("auth:login", { username, password }, (response) => {
+      if (!response?.ok) {
+        els.loginError.textContent = response?.error || "Login failed.";
+        els.loginError.hidden = false;
+        els.password.value = "";
+        els.password.focus();
+        return;
+      }
+      onlineColor = response.color;
+      state.humanPlayerId = response.color;
+      window.localStorage.setItem("lunoLoginColor", response.color);
+      syncState(response.state);
+      els.loginView.hidden = true;
+      els.gameView.hidden = false;
+      render();
+    });
+    return;
+  }
   startGame(colorNames[login.color], 4, login.color);
 });
 
 els.newGameButton.addEventListener("click", () => {
+  if (socket && onlineColor) {
+    socket.emit("game:reset");
+    return;
+  }
   clearTimeout(state.botTimer);
   state.game = null;
   els.gameView.hidden = true;
@@ -167,6 +205,13 @@ async function rollDice() {
   const player = currentPlayer();
   if (!player || state.winner || state.rolled || !player.isHuman) return;
 
+  if (socket && onlineColor) {
+    socket.emit("game:roll", {}, (response) => {
+      if (!response?.ok) addLog(response?.error || "Roll was rejected.");
+    });
+    return;
+  }
+
   state.specialNotice = "";
   state.dice = randomDice();
   state.rolled = true;
@@ -187,6 +232,13 @@ async function rollDice() {
 async function moveToken(tokenId) {
   const player = currentPlayer();
   if (!player || state.resolvingSpecial || !state.selectable.includes(tokenId)) return;
+
+  if (socket && onlineColor) {
+    socket.emit("game:move", { tokenId }, (response) => {
+      if (!response?.ok) addLog(response?.error || "Move was rejected.");
+    });
+    return;
+  }
 
   const token = player.tokens.find((candidate) => candidate.id === tokenId);
   await completeTokenMove(player, token, state.dice);
@@ -590,9 +642,15 @@ function renderPanel() {
   } else if (state.specialNotice) {
     els.statusText.textContent = state.specialNotice;
   } else if (state.selectable.length) {
-    els.statusText.textContent = "Choose one highlighted token to move.";
+    els.statusText.textContent = isHumanPlayer(player)
+      ? "Choose one highlighted token to move."
+      : `Waiting for ${player.name} to move.`;
   } else if (state.rolled) {
-    els.statusText.textContent = "No legal move. Passing turn.";
+    els.statusText.textContent = isHumanPlayer(player)
+      ? "No legal move. Passing turn."
+      : `Waiting for ${player.name}.`;
+  } else if (socket && onlineColor && !isHumanPlayer(player)) {
+    els.statusText.textContent = `Waiting for ${player.name} to roll.`;
   } else {
     els.statusText.textContent = "Your turn. Roll the dice.";
   }
@@ -606,7 +664,7 @@ function renderPanel() {
       <span class="player-dot" style="background: var(--${participant.color})"></span>
       <div>
         <strong>${participant.name}</strong><br>
-        <small>${colorNames[participant.color]}</small><br>
+        <small>${colorNames[participant.color]}${socket && participant.connected ? " · Online" : ""}</small><br>
         <small>Home ${counts.home} · Play ${counts.play} · Done ${counts.done}</small>
       </div>
       <strong>${counts.done}/4</strong>
@@ -690,7 +748,23 @@ function currentPlayer() {
 }
 
 function isHumanPlayer(player) {
-  return Boolean(player?.isHuman);
+  if (!player?.isHuman) return false;
+  if (socket && onlineColor) return player.color === onlineColor;
+  return true;
+}
+
+function syncState(nextState) {
+  if (!nextState) return;
+  state.players = nextState.players || [];
+  state.current = nextState.current || 0;
+  state.dice = nextState.dice;
+  state.rolled = Boolean(nextState.rolled);
+  state.selectable = nextState.selectable || [];
+  state.winner = nextState.winner;
+  state.log = nextState.log || [];
+  state.specialNotice = nextState.specialNotice || "";
+  state.resolvingSpecial = Boolean(nextState.resolvingSpecial);
+  state.humanPlayerId = onlineColor || state.humanPlayerId;
 }
 
 function randomDice() {
