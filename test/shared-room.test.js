@@ -36,16 +36,21 @@ function emitAck(socket, event, payload) {
       ["blue", "red"],
       "server should track both connected colors",
     );
-    assert.strictEqual(room.state.players[room.state.current].color, "red", "red should have the first turn");
+    assert.deepStrictEqual(
+      room.state.players.map((player) => player.color),
+      ["blue", "yellow", "green", "red"],
+      "shared room should follow Blue, Yellow, Green, Red order",
+    );
+    assert.strictEqual(room.state.players[room.state.current].color, "blue", "blue should have the first turn");
+
+    const redBlockedRoll = await emitAck(red, "game:roll", {});
+    assert.strictEqual(redBlockedRoll.ok, false, "red must not roll during blue's turn");
 
     const blueRoll = await emitAck(blue, "game:roll", {});
-    assert.strictEqual(blueRoll.ok, false, "blue must not roll during red's turn");
-
-    const redRoll = await emitAck(red, "game:roll", {});
-    assert.strictEqual(redRoll.ok, true, "red should roll during red's turn");
+    assert.strictEqual(blueRoll.ok, true, "blue should roll during blue's turn");
     assert.ok(
-      room.state.log.some((entry) => entry.startsWith("Red rolled ")),
-      "shared room should record red's accepted dice roll",
+      room.state.log.some((entry) => entry.startsWith("Blue rolled ")),
+      "shared room should record blue's accepted dice roll",
     );
 
     console.log("shared-room tests passed");

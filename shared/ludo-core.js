@@ -1,6 +1,6 @@
 "use strict";
 
-const colors = ["red", "blue", "yellow", "green"];
+const colors = ["blue", "yellow", "green", "red"];
 const colorNames = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
 const starts = { blue: 0, yellow: 13, green: 26, red: 39 };
 const safeIndexes = new Set([0, 8, 13, 21, 26, 34, 39, 47]);

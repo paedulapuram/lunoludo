@@ -1,6 +1,6 @@
 "use strict";
 
-const colors = ["red", "blue", "yellow", "green"];
+const colors = ["blue", "yellow", "green", "red"];
 const colorNames = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
 const botNames = ["Mira", "Dev", "Asha"];
 const botTurnDelayMs = 3000;

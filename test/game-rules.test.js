@@ -143,7 +143,7 @@ function useControlledTimers(game) {
   );
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.orderedPlayerColors(4, "yellow"))),
-    ["yellow", "red", "blue", "green"],
+    ["yellow", "blue", "green", "red"],
     "assigned login color should become the first player",
   );
 
@@ -155,17 +155,17 @@ function useControlledTimers(game) {
 
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.state.players.map((participant) => participant.color))),
-    ["red", "blue", "yellow"],
-    "selected players should follow Red, Blue, Yellow, Green order",
+    ["blue", "yellow", "green"],
+    "selected players should follow Blue, Yellow, Green, Red order",
   );
   assert.strictEqual(game.state.players[0].isHuman, true, "first selected color must be manual");
-  assert.strictEqual(game.state.humanPlayerId, "red", "human player id should be the first selected color");
+  assert.strictEqual(game.state.humanPlayerId, "blue", "human player id should be the first selected color");
   assert.strictEqual(game.state.players[1].isHuman, true, "second selected color must be manual");
   assert.strictEqual(game.state.players[2].isHuman, true, "third selected color must be manual");
   game.startGame("Yellow", 4, "yellow");
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.state.players.map((participant) => participant.color))),
-    ["yellow", "red", "blue", "green"],
+    ["yellow", "blue", "green", "red"],
     "yellow login should assign Yellow as the active player color",
   );
   assert.strictEqual(game.state.humanPlayerId, "yellow", "human player id should match the login color");
@@ -213,9 +213,9 @@ function useControlledTimers(game) {
   game.context.setTimeout = originalSetTimeout;
 
   game.state.current = 0;
-  const redHome = game.renderHomeArea("red", [10, 10], new Map());
+  const blueHome = game.renderHomeArea("blue", [10, 1], new Map());
   const greenHome = game.renderHomeArea("green", [1, 10], new Map());
-  assert.match(redHome.className, /active-home/, "current player's home should be highlighted");
+  assert.match(blueHome.className, /active-home/, "current player's home should be highlighted");
   assert.doesNotMatch(greenHome.className, /active-home/, "inactive homes should not be highlighted");
 
   game.els.diceOverlay.hidden = true;
@@ -225,9 +225,9 @@ function useControlledTimers(game) {
   assert.strictEqual(game.state.dice, 4, "controlled roll should throw 4");
   assert.strictEqual(game.els.diceOverlay.hidden, true, "dice rolls should not open a popup");
 
-  const tokenStack = game.renderTokenStack([{ player: game.state.players[0], token: { id: "red-3" } }]);
+  const tokenStack = game.renderTokenStack([{ player: game.state.players[0], token: { id: "blue-3" } }]);
   assert.doesNotMatch(tokenStack.children[0].innerHTML, /token-number/);
-  assert.match(tokenStack.children[0].innerHTML, /pawn-red\.png/);
+  assert.match(tokenStack.children[0].innerHTML, /pawn-blue\.png/);
   const stackedPawns = game.renderTokenStack([
     { player: game.state.players[0], token: { id: "red-0" } },
     { player: game.state.players[1], token: { id: "blue-0" } },
