@@ -151,8 +151,8 @@ function useControlledTimers(game) {
   );
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.orderedPlayerColors(4, "yellow"))),
-    ["yellow", "blue", "green", "red"],
-    "assigned login color should become the first player",
+    ["yellow", "green", "red", "blue"],
+    "assigned login color should become first and continue clockwise",
   );
 
   game.startGame("Player", 3);
@@ -199,8 +199,8 @@ function useControlledTimers(game) {
   game.startGame("Yellow", 4, "yellow");
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(game.state.players.map((participant) => participant.color))),
-    ["yellow", "blue", "green", "red"],
-    "yellow login should assign Yellow as the active player color",
+    ["yellow", "green", "red", "blue"],
+    "yellow login should assign Yellow first and continue clockwise",
   );
   assert.strictEqual(game.state.humanPlayerId, "yellow", "human player id should match the login color");
   assert.deepStrictEqual(

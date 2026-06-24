@@ -56,6 +56,8 @@ const els = {
   board: document.querySelector("#board"),
   username: document.querySelector("#username"),
   password: document.querySelector("#password"),
+  playWithBots: document.querySelector("#playWithBots"),
+  playerCount: document.querySelector("#playerCount"),
   loginError: document.querySelector("#loginError"),
   statusText: document.querySelector("#statusText"),
   turnLabel: document.querySelector("#turnLabel"),
@@ -90,6 +92,9 @@ const state = {
 };
 const socket = typeof io === "function" ? io() : null;
 let onlineColor = null;
+let onlineLoginOptions = {};
+let rollPending = false;
+let movePending = false;
 
 if (socket) {
   socket.on("connect", () => {
@@ -98,6 +103,8 @@ if (socket) {
   });
 
   socket.on("disconnect", () => {
+    rollPending = false;
+    movePending = false;
     if (onlineColor) {
       addLog("Connection lost. Reconnecting to the shared room...");
       render();
@@ -105,6 +112,8 @@ if (socket) {
   });
 
   socket.on("room:state", (nextState) => {
+    rollPending = false;
+    movePending = false;
     syncState(nextState);
     if (!els.loginView.hidden) return;
     render();
@@ -121,6 +130,8 @@ els.loginForm.addEventListener("submit", (event) => {
   const formData = new FormData(els.loginForm);
   const username = String(formData.get("username") || "");
   const password = String(formData.get("password") || "");
+  const playWithBots = formData.get("playWithBots") === "on";
+  const playerCount = Number(formData.get("playerCount") || 4);
   const login = authenticateColorLogin(username, password);
 
   if (!login.ok) {
@@ -132,14 +143,21 @@ els.loginForm.addEventListener("submit", (event) => {
 
   els.loginError.hidden = true;
   if (socket) {
-    loginOnlineColor(login.color, { username, password, showGame: true });
+    loginOnlineColor(login.color, { username, password, playWithBots, playerCount, showGame: true });
     return;
   }
-  startGame(colorNames[login.color], 4, login.color);
+  startGame(colorNames[login.color], playerCount, login.color, playWithBots);
 });
 
-function loginOnlineColor(color, { username = color, password = color, showGame = false } = {}) {
-  socket.emit("auth:login", { username, password }, (response) => {
+function loginOnlineColor(color, {
+  username = color,
+  password = color,
+  playWithBots = onlineLoginOptions.playWithBots || false,
+  playerCount = onlineLoginOptions.playerCount || 4,
+  showGame = false,
+} = {}) {
+  onlineLoginOptions = { playWithBots, playerCount };
+  socket.emit("auth:login", { username, password, playWithBots, playerCount }, (response) => {
       if (!response?.ok) {
         els.loginError.textContent = response?.error || "Login failed.";
         els.loginError.hidden = false;
@@ -160,7 +178,7 @@ function loginOnlineColor(color, { username = color, password = color, showGame 
 }
 
 function reconnectOnlineColor() {
-  loginOnlineColor(onlineColor);
+  loginOnlineColor(onlineColor, onlineLoginOptions);
 }
 
 els.newGameButton.addEventListener("click", () => {
@@ -197,12 +215,13 @@ function authenticateColorLogin(username, password) {
 }
 
 function orderedPlayerColors(playerCount, assignedColor) {
-  const selected = colors.slice(0, playerCount);
-  if (!assignedColor || !selected.includes(assignedColor)) return selected;
-  return [assignedColor, ...selected.filter((color) => color !== assignedColor)];
+  const count = Math.max(2, Math.min(colors.length, Number(playerCount) || colors.length));
+  const startIndex = colors.includes(assignedColor) ? colors.indexOf(assignedColor) : 0;
+  const ordered = [...colors.slice(startIndex), ...colors.slice(0, startIndex)];
+  return ordered.slice(0, count);
 }
 
-function startGame(playerName, playerCount, assignedColor = null) {
+function startGame(playerName, playerCount, assignedColor = null, playWithBots = false) {
   const cleanName = playerName.trim().slice(0, 18) || "Player";
   const playerColors = orderedPlayerColors(playerCount, assignedColor);
   window.localStorage.setItem("lunoPlayerName", cleanName);
@@ -211,7 +230,7 @@ function startGame(playerName, playerCount, assignedColor = null) {
     id: color,
     name: index === 0 ? cleanName : colorNames[color],
     color,
-    isHuman: true,
+    isHuman: !playWithBots || index === 0,
     entryMisses: 0,
     tokens: Array.from({ length: 4 }, (_, tokenIndex) => ({
       id: `${color}-${tokenIndex}`,
@@ -235,7 +254,7 @@ function startGame(playerName, playerCount, assignedColor = null) {
 
 async function rollDice() {
   const player = currentPlayer();
-  if (!player || state.winner || state.rolled || !player.isHuman) return;
+  if (!player || rollPending || state.winner || state.rolled || !player.isHuman) return;
 
   if (socket && onlineColor) {
     if (!socket.connected) {
@@ -243,11 +262,14 @@ async function rollDice() {
       render();
       return;
     }
+    rollPending = true;
+    render();
     socket.emit("game:roll", {}, (response) => {
+      rollPending = false;
       if (!response?.ok) {
         addLog(response?.error || "Roll was rejected.");
-        render();
       }
+      render();
     });
     return;
   }
@@ -272,7 +294,7 @@ async function rollDice() {
 
 async function moveToken(tokenId) {
   const player = currentPlayer();
-  if (!player || state.resolvingSpecial || !state.selectable.includes(tokenId)) return;
+  if (!player || movePending || state.resolvingSpecial || !state.selectable.includes(tokenId)) return;
 
   if (socket && onlineColor) {
     if (!socket.connected) {
@@ -280,11 +302,14 @@ async function moveToken(tokenId) {
       render();
       return;
     }
+    movePending = true;
+    render();
     socket.emit("game:move", { tokenId }, (response) => {
+      movePending = false;
       if (!response?.ok) {
         addLog(response?.error || "Move was rejected.");
-        render();
       }
+      render();
     });
     return;
   }
@@ -668,7 +693,7 @@ function renderTokenStack(tokens) {
     const tokenNumber = Number(item.token.id.split("-")[1]) + 1;
     button.ariaLabel = `${item.player.name} token ${tokenNumber}`;
     button.innerHTML = `<img class="pawn-img" src="./assets/pawn-${item.player.color}.png" alt="" />`;
-    if (!state.resolvingSpecial && state.selectable.includes(item.token.id) && isHumanPlayer(item.player)) {
+    if (!movePending && !state.resolvingSpecial && state.selectable.includes(item.token.id) && isHumanPlayer(item.player)) {
       button.classList.add("selectable");
       button.addEventListener("click", () => moveToken(item.token.id));
     } else {
@@ -685,13 +710,18 @@ function renderPanel() {
   els.turnLabel.textContent = player ? `${player.name} (${colorNames[player.color]})` : "-";
   els.diceFace.textContent = state.dice || "?";
   const onlineDisconnected = Boolean(socket && onlineColor && !socket.connected);
-  els.diceButton.disabled = onlineDisconnected || state.resolvingSpecial || !isHumanPlayer(player) || state.rolled || Boolean(state.winner);
+  els.diceButton.disabled =
+    onlineDisconnected || rollPending || state.resolvingSpecial || !isHumanPlayer(player) || state.rolled || Boolean(state.winner);
 
   if (state.winner) {
     const winner = state.players.find((candidate) => candidate.id === state.winner);
     els.statusText.textContent = `${winner.name} wins. Start a new game to play again.`;
   } else if (onlineDisconnected) {
     els.statusText.textContent = "Reconnecting to the shared room...";
+  } else if (rollPending) {
+    els.statusText.textContent = "Rolling dice...";
+  } else if (movePending) {
+    els.statusText.textContent = "Moving pawn...";
   } else if (state.resolvingSpecial) {
     els.statusText.textContent = "Revealing surprise card...";
   } else if (state.specialNotice) {

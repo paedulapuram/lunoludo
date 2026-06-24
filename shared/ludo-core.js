@@ -2,6 +2,7 @@
 
 const colors = ["blue", "yellow", "green", "red"];
 const colorNames = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
+const botNames = ["Mira", "Dev", "Asha"];
 const lastTrackProgress = 51;
 const firstLaneProgress = 52;
 const completedProgress = 57;
@@ -34,14 +35,21 @@ const centerTargets = {
   red: [7, 8],
 };
 
-function createGame() {
+function createGame(options = {}) {
+  const {
+    activeColors = colors,
+    humanColor = null,
+    botMode = false,
+  } = options;
+  const selectedColors = activeColors.filter((color) => colors.includes(color));
+  const playerColors = selectedColors.length ? selectedColors : colors;
   return {
-    players: colors.map((color) => ({
+    players: playerColors.map((color, index) => ({
       id: color,
-      name: colorNames[color],
+      name: botMode && color !== humanColor ? botNames[index % botNames.length] : colorNames[color],
       color,
-      isHuman: true,
-      connected: false,
+      isHuman: !botMode || color === humanColor,
+      connected: botMode && color !== humanColor,
       entryMisses: 0,
       tokens: Array.from({ length: 4 }, (_, tokenIndex) => ({
         id: `${color}-${tokenIndex}`,
@@ -58,6 +66,13 @@ function createGame() {
     specialNotice: "",
     resolvingSpecial: false,
   };
+}
+
+function clockwiseColorsFrom(color, playerCount = colors.length) {
+  const count = Math.max(2, Math.min(colors.length, Number(playerCount) || colors.length));
+  const startIndex = colors.includes(color) ? colors.indexOf(color) : 0;
+  const ordered = [...colors.slice(startIndex), ...colors.slice(0, startIndex)];
+  return ordered.slice(0, count);
 }
 
 function authenticateColorLogin(username, password) {
@@ -353,6 +368,7 @@ function addLog(state, message) {
 module.exports = {
   colors,
   colorNames,
+  botNames,
   track,
   lanes,
   yards,
@@ -360,6 +376,7 @@ module.exports = {
   safeIndexes,
   surpriseIndexes,
   authenticateColorLogin,
+  clockwiseColorsFrom,
   createGame,
   publicState,
   currentPlayer,

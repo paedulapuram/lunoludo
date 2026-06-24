@@ -22,9 +22,10 @@ function emitAck(socket, event, payload) {
   const url = `http://127.0.0.1:${port}`;
   const red = Client(url, { transports: ["websocket"] });
   const blue = Client(url, { transports: ["websocket"] });
+  const green = Client(url, { transports: ["websocket"] });
 
   try {
-    await Promise.all([waitFor(red, "connect"), waitFor(blue, "connect")]);
+    await Promise.all([waitFor(red, "connect"), waitFor(blue, "connect"), waitFor(green, "connect")]);
 
     const redLogin = await emitAck(red, "auth:login", { username: "red", password: "red" });
     const blueLogin = await emitAck(blue, "auth:login", { username: "blue", password: "blue" });
@@ -50,15 +51,40 @@ function emitAck(socket, event, payload) {
     const blueRoll = await emitAck(blue, "game:roll", {});
     assert.strictEqual(blueRoll.ok, true, "blue should roll during blue's turn");
     assert.strictEqual(room.state.dice, 6, "entry assist should give blue a 6 after two missed entry rolls");
+    const duplicateBlueRoll = await emitAck(blue, "game:roll", {});
+    assert.strictEqual(duplicateBlueRoll.ok, false, "blue must not roll twice before moving");
     assert.ok(
       room.state.log.some((entry) => entry.startsWith("Blue rolled ")),
       "shared room should record blue's accepted dice roll",
     );
 
+    room.config = null;
+    room.state = createGame();
+    room.sockets.clear();
+    const greenBotLogin = await emitAck(green, "auth:login", {
+      username: "green",
+      password: "green",
+      playWithBots: true,
+      playerCount: 3,
+    });
+    assert.strictEqual(greenBotLogin.ok, true, "green should start a bot game");
+    assert.deepStrictEqual(
+      room.state.players.map((player) => player.color),
+      ["green", "red", "blue"],
+      "bot game should start with the login color and continue clockwise",
+    );
+    assert.deepStrictEqual(
+      room.state.players.map((player) => player.isHuman),
+      [true, false, false],
+      "only the logged-in color should be human in bot mode",
+    );
+
     console.log("shared-room tests passed");
   } finally {
+    clearTimeout(room.botTimer);
     red.close();
     blue.close();
+    green.close();
     io.close();
     await new Promise((resolve) => server.close(resolve));
   }

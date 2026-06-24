@@ -28,6 +28,22 @@
             <input id="password" name="password" type="password" maxlength="18" autocomplete="current-password" placeholder="same as username" />
           </label>
 
+          <fieldset class="bot-setup">
+            <label class="check-row">
+              <input id="playWithBots" name="playWithBots" type="checkbox" />
+              <span>Play with bots</span>
+            </label>
+
+            <label>
+              Players
+              <select id="playerCount" name="playerCount">
+                <option value="2">2 players</option>
+                <option value="3">3 players</option>
+                <option value="4" selected>4 players</option>
+              </select>
+            </label>
+          </fieldset>
+
           <p id="loginError" class="login-error" hidden>Use matching color credentials: red/red, blue/blue, yellow/yellow, or green/green.</p>
 
           <button class="primary-action" type="submit">Login & start</button>
