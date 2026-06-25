@@ -23,9 +23,10 @@ function emitAck(socket, event, payload) {
   const red = Client(url, { transports: ["websocket"] });
   const blue = Client(url, { transports: ["websocket"] });
   const green = Client(url, { transports: ["websocket"] });
+  const yellow = Client(url, { transports: ["websocket"] });
 
   try {
-    await Promise.all([waitFor(red, "connect"), waitFor(blue, "connect"), waitFor(green, "connect")]);
+    await Promise.all([waitFor(red, "connect"), waitFor(blue, "connect"), waitFor(green, "connect"), waitFor(yellow, "connect")]);
 
     const redLogin = await emitAck(red, "auth:login", { username: "red", password: "red" });
     const blueLogin = await emitAck(blue, "auth:login", { username: "blue", password: "blue" });
@@ -61,6 +62,46 @@ function emitAck(socket, event, payload) {
     room.config = null;
     room.state = createGame();
     room.sockets.clear();
+    const greenManualLogin = await emitAck(green, "auth:login", {
+      username: "green",
+      password: "green",
+      playWithBots: false,
+      playerCount: 2,
+    });
+    const waitingRoll = await emitAck(green, "game:roll", {});
+    const yellowManualLogin = await emitAck(yellow, "auth:login", {
+      username: "yellow",
+      password: "yellow",
+      playWithBots: false,
+      playerCount: 2,
+    });
+    const disabledBlueLogin = await emitAck(blue, "auth:login", {
+      username: "blue",
+      password: "blue",
+      playWithBots: false,
+      playerCount: 2,
+    });
+    const disabledRedLogin = await emitAck(red, "auth:login", {
+      username: "red",
+      password: "red",
+      playWithBots: false,
+      playerCount: 2,
+    });
+    assert.strictEqual(greenManualLogin.ok, true, "green should start a 2-player manual game");
+    assert.strictEqual(waitingRoll.ok, false, "green cannot roll until the selected players join");
+    assert.strictEqual(yellowManualLogin.ok, true, "yellow should join as the second manual player");
+    assert.strictEqual(disabledBlueLogin.ok, false, "blue should be disabled after the 2-player manual game fills");
+    assert.strictEqual(disabledRedLogin.ok, false, "red should be disabled after the 2-player manual game fills");
+    assert.strictEqual(room.state.waitingForPlayers, false, "manual room should unlock once the selected player count joins");
+    assert.deepStrictEqual(
+      room.state.players.map((player) => player.color),
+      ["green", "yellow"],
+      "manual 2-player game should activate colors in login order",
+    );
+
+    room.config = null;
+    room.state = createGame();
+    room.sockets.clear();
     const greenBotLogin = await emitAck(green, "auth:login", {
       username: "green",
       password: "green",
@@ -85,6 +126,7 @@ function emitAck(socket, event, payload) {
     red.close();
     blue.close();
     green.close();
+    yellow.close();
     io.close();
     await new Promise((resolve) => server.close(resolve));
   }

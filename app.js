@@ -89,6 +89,7 @@ const state = {
   specialNotice: "",
   resolvingSpecial: false,
   humanPlayerId: null,
+  waitingForPlayers: false,
 };
 const socket = typeof io === "function" ? io() : null;
 let onlineColor = null;
@@ -711,13 +712,21 @@ function renderPanel() {
   els.diceFace.textContent = state.dice || "?";
   const onlineDisconnected = Boolean(socket && onlineColor && !socket.connected);
   els.diceButton.disabled =
-    onlineDisconnected || rollPending || state.resolvingSpecial || !isHumanPlayer(player) || state.rolled || Boolean(state.winner);
+    onlineDisconnected ||
+    state.waitingForPlayers ||
+    rollPending ||
+    state.resolvingSpecial ||
+    !isHumanPlayer(player) ||
+    state.rolled ||
+    Boolean(state.winner);
 
   if (state.winner) {
     const winner = state.players.find((candidate) => candidate.id === state.winner);
     els.statusText.textContent = `${winner.name} wins. Start a new game to play again.`;
   } else if (onlineDisconnected) {
     els.statusText.textContent = "Reconnecting to the shared room...";
+  } else if (state.waitingForPlayers) {
+    els.statusText.textContent = "Waiting for selected players to join.";
   } else if (rollPending) {
     els.statusText.textContent = "Rolling dice...";
   } else if (movePending) {
@@ -919,6 +928,7 @@ function syncState(nextState) {
   state.log = nextState.log || [];
   state.specialNotice = nextState.specialNotice || "";
   state.resolvingSpecial = Boolean(nextState.resolvingSpecial);
+  state.waitingForPlayers = Boolean(nextState.waitingForPlayers);
   state.humanPlayerId = onlineColor || state.humanPlayerId;
 }
 

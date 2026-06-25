@@ -47,8 +47,9 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const selectedCount = Math.max(2, Math.min(4, Number(playerCount) || 4));
     if (playWithBots) {
-      const activeColors = clockwiseColorsFrom(login.color, playerCount);
+      const activeColors = clockwiseColorsFrom(login.color, selectedCount);
       room.config = {
         botMode: true,
         humanColor: login.color,
@@ -59,6 +60,29 @@ io.on("connection", (socket) => {
         `${colorNames[login.color]} started a ${activeColors.length}-player bot game.`,
         `Turn order: ${activeColors.map((color) => colorNames[color]).join(" → ")}.`,
       ];
+    } else if (selectedCount < 4 && (!room.config || room.config.botMode)) {
+      room.config = {
+        botMode: false,
+        humanColor: null,
+        playerLimit: selectedCount,
+        activeColors: [login.color],
+      };
+      room.state = createGame(room.config);
+      room.state.waitingForPlayers = true;
+      room.state.log = [
+        `${colorNames[login.color]} started a ${selectedCount}-player manual game.`,
+        `Waiting for ${selectedCount - 1} more player${selectedCount - 1 === 1 ? "" : "s"}.`,
+      ];
+    } else if (room.config && !room.config.botMode && room.config.playerLimit) {
+      if (!room.config.activeColors.includes(login.color) && room.config.activeColors.length < room.config.playerLimit) {
+        room.config.activeColors.push(login.color);
+        rebuildManualRoomState([
+          `${colorNames[login.color]} joined as player ${room.config.activeColors.length}.`,
+          room.config.activeColors.length < room.config.playerLimit
+            ? `Waiting for ${room.config.playerLimit - room.config.activeColors.length} more player${room.config.playerLimit - room.config.activeColors.length === 1 ? "" : "s"}.`
+            : `Game ready with ${room.config.activeColors.map((color) => colorNames[color]).join(" → ")}.`,
+        ]);
+      }
     } else if (room.config?.botMode && room.config.humanColor !== login.color) {
       room.config = null;
       room.state = createGame();
@@ -69,7 +93,8 @@ io.on("connection", (socket) => {
     room.sockets.set(socket.id, login.color);
     const player = room.state.players.find((candidate) => candidate.color === login.color);
     if (!player) {
-      ack({ ok: false, error: `${colorNames[login.color]} is not active in this game.` });
+      room.sockets.delete(socket.id);
+      ack({ ok: false, error: `${colorNames[login.color]} is disabled for this ${room.state.players.length}-player game.` });
       return;
     }
     player.connected = true;
@@ -88,6 +113,14 @@ io.on("connection", (socket) => {
         `${colorNames[room.config.humanColor]} restarted the bot game.`,
         `Turn order: ${room.config.activeColors.map((color) => colorNames[color]).join(" → ")}.`,
       ];
+    } else if (room.config?.playerLimit) {
+      room.state.waitingForPlayers = room.config.activeColors.length < room.config.playerLimit;
+      room.state.log = [
+        `Manual ${room.config.playerLimit}-player game restarted.`,
+        room.state.waitingForPlayers
+          ? `Waiting for ${room.config.playerLimit - room.config.activeColors.length} more player${room.config.playerLimit - room.config.activeColors.length === 1 ? "" : "s"}.`
+          : `Game ready with ${room.config.activeColors.map((color) => colorNames[color]).join(" → ")}.`,
+      ];
     }
     for (const color of room.sockets.values()) {
       const player = room.state.players.find((candidate) => candidate.color === color);
@@ -99,6 +132,11 @@ io.on("connection", (socket) => {
 
   socket.on("game:roll", (_payload, ack = () => {}) => {
     const color = socket.data.color;
+    if (room.state.waitingForPlayers) {
+      ack({ ok: false, error: "Waiting for the selected players to join." });
+      broadcastState();
+      return;
+    }
     const result = rollDice(room.state, color);
     ack(result);
     broadcastState();
@@ -139,6 +177,17 @@ io.on("connection", (socket) => {
 
 function broadcastState() {
   io.emit("room:state", publicState(room.state));
+}
+
+function rebuildManualRoomState(logLines = []) {
+  const previousLog = room.state.log || [];
+  const connectedColors = new Set(room.sockets.values());
+  room.state = createGame(room.config);
+  room.state.waitingForPlayers = room.config.activeColors.length < room.config.playerLimit;
+  for (const player of room.state.players) {
+    player.connected = connectedColors.has(player.color);
+  }
+  room.state.log = [...previousLog, ...logLines];
 }
 
 function scheduleBotTurn() {
