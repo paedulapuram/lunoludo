@@ -48,6 +48,11 @@ io.on("connection", (socket) => {
     }
 
     const selectedCount = Math.max(2, Math.min(4, Number(playerCount) || 4));
+    if (!playWithBots && room.config && !room.config.botMode && !manualRoomHasConnectedPlayers()) {
+      room.config = null;
+      room.state = createGame();
+    }
+
     if (playWithBots) {
       const activeColors = clockwiseColorsFrom(login.color, selectedCount);
       room.config = {
@@ -177,6 +182,12 @@ io.on("connection", (socket) => {
 
 function broadcastState() {
   io.emit("room:state", publicState(room.state));
+}
+
+function manualRoomHasConnectedPlayers() {
+  if (!room.config?.playerLimit) return false;
+  const activeColors = new Set(room.config.activeColors);
+  return Array.from(room.sockets.values()).some((color) => activeColors.has(color));
 }
 
 function rebuildManualRoomState(logLines = []) {

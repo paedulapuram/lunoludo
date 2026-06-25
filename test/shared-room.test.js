@@ -99,6 +99,21 @@ function emitAck(socket, event, payload) {
       "manual 2-player game should activate colors in login order",
     );
 
+    room.sockets.clear();
+    const blueFirstLogin = await emitAck(blue, "auth:login", {
+      username: "blue",
+      password: "blue",
+      playWithBots: false,
+      playerCount: 2,
+    });
+    assert.strictEqual(blueFirstLogin.ok, true, "blue should be able to start a fresh manual room after the old room empties");
+    assert.strictEqual(room.state.waitingForPlayers, true, "fresh blue room should wait for the second selected player");
+    assert.deepStrictEqual(
+      room.state.players.map((player) => player.color),
+      ["blue"],
+      "fresh manual room should only activate the first login color until another user joins",
+    );
+
     room.config = null;
     room.state = createGame();
     room.sockets.clear();
